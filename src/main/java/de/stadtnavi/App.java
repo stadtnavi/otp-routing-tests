@@ -1,14 +1,9 @@
 package de.stadtnavi;
 
-import ch.qos.logback.core.encoder.EchoEncoder;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import static java.lang.Float.parseFloat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -19,7 +14,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class App {
 
@@ -47,6 +47,20 @@ public class App {
         public String toString() {
             return label + "(" + lat + "," + lng + ")";
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Place place = (Place) o;
+            return Double.compare(place.lat, lat) == 0 &&
+                    Double.compare(place.lng, lng) == 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(lat, lng);
+        }
     }
 
     static Logger log = LoggerFactory.getLogger("log");
@@ -61,14 +75,21 @@ public class App {
     static String sbahnBikeRental = "WALK,BICYCLE_RENT,RAIL";
 
     public static void main(String[] args) {
-        parseRoutes().forEach(
-                route -> {
-                    queryRoute(route, modeTransit);
-                    queryRoute(route, sbahnBikeRental);
-                });
+        buildCombinations(parseLocations())
+                .forEach(
+                        route -> {
+                            queryRoute(route, modeTransit);
+                            queryRoute(route, sbahnBikeRental);
+                        });
     }
 
-    private static void queryRoute(Route route, String mode) {
+    static Stream<Route> buildCombinations(List<Place> places) {
+        return places.stream()
+                .flatMap(from -> places.stream().map(to -> new Route(from, to)))
+                .filter(r -> !r.from.equals(r.to));
+    }
+
+    static void queryRoute(Route route, String mode) {
         var req = HttpRequest.newBuilder().uri(makeUri(route, mode)).GET().build();
         try {
             var start = Instant.now();
@@ -83,10 +104,15 @@ public class App {
 
     static void report(Route route, String mode, HttpResponse<String> resp, Duration duration) {
         var isSuccess = isSuccess(resp);
-        if(isSuccess) {
-            log.info("Route from {} to {} with modes {} took {} ms.", route.from, route.to, mode, duration.toMillis());
+        if (isSuccess) {
+            log.info(
+                    "Route from {} to {} with modes {} took {} ms.",
+                    route.from,
+                    route.to,
+                    mode,
+                    duration.toMillis());
         } else {
-            log.error("Route from {} to {} with modes {} failed.", route.from, route.to, mode);
+            log.error("Route from {} to {} with modes {} failed: {}", route.from, route.to, mode, resp.body());
         }
     }
 
@@ -96,7 +122,6 @@ public class App {
             JsonNode json = mapper.readTree(resp.body());
             return json.get("plan").get("itineraries").size() > 0;
         } catch (Throwable e) {
-            e.printStackTrace();
             return false;
         }
     }
@@ -114,14 +139,11 @@ public class App {
         }
     }
 
-    static Stream<Route> parseRoutes() {
-        var stream = App.class.getResourceAsStream("/routes.csv");
+    static List<Place> parseLocations() {
+        var stream = App.class.getResourceAsStream("/locations.csv");
         var lines = new BufferedReader(new InputStreamReader(stream)).lines();
         var parts = lines.map(l -> l.split(","));
-        return parts.map(
-                p ->
-                        new Route(
-                                new Place(p[0], parseFloat(p[1]), parseFloat(p[2])),
-                                new Place(p[3], parseFloat(p[4]), parseFloat(p[5]))));
+        return parts.map(p -> new Place(p[0], parseFloat(p[1]), parseFloat(p[2])))
+                .collect(Collectors.toList());
     }
 }
