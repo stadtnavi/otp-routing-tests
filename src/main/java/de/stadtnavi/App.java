@@ -54,8 +54,7 @@ public class App {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             Place place = (Place) o;
-            return Double.compare(place.lat, lat) == 0 &&
-                    Double.compare(place.lng, lng) == 0;
+            return Double.compare(place.lat, lat) == 0 && Double.compare(place.lng, lng) == 0;
         }
 
         @Override
@@ -78,18 +77,19 @@ public class App {
     static ConcurrentLinkedQueue<Route> failedRoutes = new ConcurrentLinkedQueue<>();
 
     public static void main(String[] args) {
-        buildCombinations(parseLocations())
-                .forEach(
-                        route -> {
-                            queryRoute(route, modeTransit);
-                            queryRoute(route, sbahnBikeRental);
-                        });
+        var routes = buildCombinations(parseLocations());
+        log.info("Running {} route combinations with 2 sets of modes.", routes.size());
+        routes.forEach(
+                route -> {
+                    queryRoute(route, modeTransit);
+                    queryRoute(route, sbahnBikeRental);
+                });
     }
 
-    static Stream<Route> buildCombinations(List<Place> places) {
+    static List<Route> buildCombinations(List<Place> places) {
         return places.stream()
                 .flatMap(from -> places.stream().map(to -> new Route(from, to)))
-                .filter(r -> !r.from.equals(r.to));
+                .filter(r -> !r.from.equals(r.to)).collect(Collectors.toList());
     }
 
     static void queryRoute(Route route, String mode) {
@@ -116,7 +116,12 @@ public class App {
                     duration.toMillis());
         } else {
             failedRoutes.add(route);
-            log.error("Route from {} to {} with modes {} failed: {}", route.from, route.to, mode, resp.body());
+            log.error(
+                    "Route from {} to {} with modes {} failed: {}",
+                    route.from,
+                    route.to,
+                    mode,
+                    resp.body());
         }
     }
 

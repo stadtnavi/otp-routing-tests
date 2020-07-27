@@ -3,7 +3,7 @@
     <conversionRule conversionWord="colorize" converterClass="org.tuxdude.logback.extensions.LogColorizer" />
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%-5level %colorize(%msg)</pattern>
+            <pattern>%colorize(%msg) %n</pattern>
         </encoder>
     </appender>
 
