@@ -1,5 +1,8 @@
 package de.stadtnavi;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import static java.lang.Float.parseFloat;
 
 import java.io.BufferedReader;
@@ -11,7 +14,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.stream.Collectors;
+import java.time.Instant;
 import java.util.stream.Stream;
 
 public class App {
@@ -35,7 +38,14 @@ public class App {
             this.lat = lat;
             this.lng = lng;
         }
+
+        @Override
+        public String toString() {
+            return label + "(" + lat + "," + lng + ")";
+        }
     }
+
+    static Logger log = LoggerFactory.getLogger("log");
 
     static HttpClient client =
             HttpClient.newBuilder()
@@ -43,37 +53,48 @@ public class App {
                     .connectTimeout(Duration.ofSeconds(20))
                     .build();
 
-    public static void main(String[] args) {
-        var requests =
-                parseRoutes()
-                        .map(r -> HttpRequest.newBuilder().uri(makeUri(r)).GET().build())
-                        .collect(Collectors.toList());
+    static String modeTransit = "TRANSIT,WALK";
+    static String sbahnBikeRental = "WALK,BICYCLE_RENT,RAIL";
 
-        requests.forEach(
-                req -> {
-                    try {
-                        var response = client.send(req, HttpResponse.BodyHandlers.ofString());
-                        System.out.println(response.statusCode());
-                    } catch (IOException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
+    public static void main(String[] args) {
+        parseRoutes().forEach(
+                route -> {
+                    queryRoute(route, modeTransit);
+                    queryRoute(route, sbahnBikeRental);
                 });
     }
 
-    private static URI makeUri(Route route) {
+    private static void queryRoute(Route route, String mode) {
+        var req = HttpRequest.newBuilder().uri(makeUri(route, mode)).GET().build();
+        try {
+            var start = Instant.now();
+            var response = client.send(req, HttpResponse.BodyHandlers.ofString());
+            var end = Instant.now();
+            var duration = Duration.between(start, end).abs();
+            report(route, mode, response, duration);
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    static void report(Route route, String mode, HttpResponse resp, Duration duration) {
+        log.info("Route from {} to {} with modes {} had status code {}, took {} ms", route.from, route.to, mode, resp.statusCode(), duration.toMillis());
+    }
+
+    static URI makeUri(Route route, String modes) {
         var from = route.from;
         var to = route.to;
         var uri =
-                "https://api.mih.mitfahren-bw.de/routing/v1/router/plan?fromPlace=%f,%f&toPlace=%f,%f&mode=TRANSIT,WALK&maxWalkDistance=100000&arriveBy=false&wheelchair=false&locale=en";
+                "https://api.mih.mitfahren-bw.de/routing/v1/router/plan?fromPlace=%f,%f&toPlace=%f,%f&mode=%s&maxWalkDistance=100000&arriveBy=false&wheelchair=false&locale=en";
         try {
-            return new URI(String.format(uri, from.lat, from.lng, to.lat, to.lng));
+            return new URI(String.format(uri, from.lat, from.lng, to.lat, to.lng, modes));
         } catch (URISyntaxException e) {
             e.printStackTrace();
             return null;
         }
     }
 
-    public static Stream<Route> parseRoutes() {
+    static Stream<Route> parseRoutes() {
         var stream = App.class.getResourceAsStream("/routes.csv");
         var lines = new BufferedReader(new InputStreamReader(stream)).lines();
         var parts = lines.map(l -> l.split(","));
