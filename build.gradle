@@ -2,7 +2,6 @@ plugins {
     id "idea"
     id "application"
     id "com.github.sherter.google-java-format" version "0.9"
-    id 'com.github.ksoichiro.console.reporter' version '0.6.2'
 }
 
 group 'io.leonard'
@@ -32,9 +31,7 @@ dependencies {
     implementation group: 'com.fasterxml.jackson.module', name: 'jackson-module-parameter-names', version: jacksonVersion
     implementation group: 'com.fasterxml.jackson.datatype', name: 'jackson-datatype-jsr310', version: jacksonVersion
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
-
-    testImplementation  group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: junitVersion
-    testImplementation  group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junitVersion
+    implementation group: 'org.tuxdude.logback.extensions', name: 'logback-colorizer', version: '1.0.1'
 }
 
 googleJavaFormat {
@@ -42,10 +39,6 @@ googleJavaFormat {
 }
 
 mainClassName = "de.stadtnavi.App"
-
-run {
-    args 'server', 'src/main/resources/config.yml'
-}
 
 test {
     useJUnitPlatform()
