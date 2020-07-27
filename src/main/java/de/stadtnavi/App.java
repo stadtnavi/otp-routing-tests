@@ -1,12 +1,41 @@
 package de.stadtnavi;
 
+import static java.lang.Float.parseFloat;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class App {
+
+    public static class Route {
+        Place from;
+        Place to;
+
+        public Route(Place from, Place to) {
+            this.from = from;
+            this.to = to;
+        }
+    }
+
+    public static class Place {
+        String label;
+        double lat, lng;
+
+        public Place(String label, double lat, double lng) {
+            this.label = label;
+            this.lat = lat;
+            this.lng = lng;
+        }
+    }
 
     static HttpClient client =
             HttpClient.newBuilder()
@@ -14,19 +43,44 @@ public class App {
                     .connectTimeout(Duration.ofSeconds(20))
                     .build();
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
+        var requests =
+                parseRoutes()
+                        .map(r -> HttpRequest.newBuilder().uri(makeUri(r)).GET().build())
+                        .collect(Collectors.toList());
 
-        HttpRequest request =
-                HttpRequest.newBuilder()
-                        .uri(
-                                new URI(
-                                        "https://api.mih.mitfahren-bw.de/routing/v1/router/plan?fromPlace=48.73264383158835%2C9.112472534179686&toPlace=48.68370757165364%2C8.998832702636719&time=11%3A06am&date=07-27-2020&mode=TRANSIT%2CWALK&maxWalkDistance=804.672&arriveBy=false&wheelchair=false&locale=en"))
-                        .GET()
-                        .build();
+        requests.forEach(
+                req -> {
+                    try {
+                        var response = client.send(req, HttpResponse.BodyHandlers.ofString());
+                        System.out.println(response.statusCode());
+                    } catch (IOException | InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                });
+    }
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    private static URI makeUri(Route route) {
+        var from = route.from;
+        var to = route.to;
+        var uri =
+                "https://api.mih.mitfahren-bw.de/routing/v1/router/plan?fromPlace=%f,%f&toPlace=%f,%f&mode=TRANSIT,WALK&maxWalkDistance=100000&arriveBy=false&wheelchair=false&locale=en";
+        try {
+            return new URI(String.format(uri, from.lat, from.lng, to.lat, to.lng));
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 
-        System.out.println(response.statusCode());
-        System.out.println(response.body());
+    public static Stream<Route> parseRoutes() {
+        var stream = App.class.getResourceAsStream("/routes.csv");
+        var lines = new BufferedReader(new InputStreamReader(stream)).lines();
+        var parts = lines.map(l -> l.split(","));
+        return parts.map(
+                p ->
+                        new Route(
+                                new Place(p[0], parseFloat(p[1]), parseFloat(p[2])),
+                                new Place(p[3], parseFloat(p[4]), parseFloat(p[5]))));
     }
 }
