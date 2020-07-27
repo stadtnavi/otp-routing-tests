@@ -1,5 +1,9 @@
 package de.stadtnavi;
 
+import ch.qos.logback.core.encoder.EchoEncoder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,8 +81,24 @@ public class App {
         }
     }
 
-    static void report(Route route, String mode, HttpResponse resp, Duration duration) {
-        log.info("Route from {} to {} with modes {} had status code {}, took {} ms", route.from, route.to, mode, resp.statusCode(), duration.toMillis());
+    static void report(Route route, String mode, HttpResponse<String> resp, Duration duration) {
+        var isSuccess = isSuccess(resp);
+        if(isSuccess) {
+            log.info("Route from {} to {} with modes {} took {} ms.", route.from, route.to, mode, duration.toMillis());
+        } else {
+            log.error("Route from {} to {} with modes {} failed.", route.from, route.to, mode);
+        }
+    }
+
+    static boolean isSuccess(HttpResponse<String> resp) {
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            JsonNode json = mapper.readTree(resp.body());
+            return json.get("plan").get("itineraries").size() > 0;
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     static URI makeUri(Route route, String modes) {
