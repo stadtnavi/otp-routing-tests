@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -74,6 +75,8 @@ public class App {
     static String modeTransit = "TRANSIT,WALK";
     static String sbahnBikeRental = "WALK,BICYCLE_RENT,RAIL";
 
+    static ConcurrentLinkedQueue<Route> failedRoutes = new ConcurrentLinkedQueue<>();
+
     public static void main(String[] args) {
         buildCombinations(parseLocations())
                 .forEach(
@@ -112,6 +115,7 @@ public class App {
                     mode,
                     duration.toMillis());
         } else {
+            failedRoutes.add(route);
             log.error("Route from {} to {} with modes {} failed: {}", route.from, route.to, mode, resp.body());
         }
     }
