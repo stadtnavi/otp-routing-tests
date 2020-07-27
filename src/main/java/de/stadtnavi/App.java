@@ -130,7 +130,7 @@ public class App {
         var from = route.from;
         var to = route.to;
         var uri =
-                "https://api.mih.mitfahren-bw.de/routing/v1/router/plan?fromPlace=%f,%f&toPlace=%f,%f&mode=%s&maxWalkDistance=100000&arriveBy=false&wheelchair=false&locale=en";
+                "https://api.mih.mitfahren-bw.de/routing/v1/router/plan?fromPlace=%f,%f&toPlace=%f,%f&mode=%s&maxWalkDistance=15000&arriveBy=false&wheelchair=false&locale=en";
         try {
             return new URI(String.format(uri, from.lat, from.lng, to.lat, to.lng, modes));
         } catch (URISyntaxException e) {
