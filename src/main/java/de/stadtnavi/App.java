@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-record Place(String label, double lat, double lng){}
+record Place(String label, double lat, double lng) {}
 record Route(Place from, Place to) {}
 
 public class App {
@@ -37,6 +37,7 @@ public class App {
     static String sbahnBikeRental = "WALK,BICYCLE_RENT,RAIL";
 
     static ConcurrentLinkedQueue<Route> failedRoutes = new ConcurrentLinkedQueue<>();
+    static ObjectMapper mapper = new ObjectMapper();
 
     public static void main(String[] args) {
         var routes = buildCombinations(parseLocations());
@@ -51,7 +52,8 @@ public class App {
     static List<Route> buildCombinations(List<Place> places) {
         return places.stream()
                 .flatMap(from -> places.stream().map(to -> new Route(from, to)))
-                .filter(r -> !Objects.equals(r.from(), r.to())).collect(Collectors.toList());
+                .filter(r -> !Objects.equals(r.from(), r.to()))
+                .collect(Collectors.toList());
     }
 
     static void queryRoute(Route route, String mode) {
@@ -68,14 +70,15 @@ public class App {
     }
 
     static void report(Route route, String mode, HttpResponse<String> resp, Duration duration) {
-        var isSuccess = isSuccess(resp);
+        var isSuccess = isSuccess(resp.body());
         if (isSuccess) {
             log.info(
-                    "Route from {} to {} with modes {} took {} ms.",
+                    "Route from {} to {} with modes {} took {} ms ({} nodes visited).",
                     route.from(),
                     route.to(),
                     mode,
-                    duration.toMillis());
+                    duration.toMillis(),
+                    nodesVisited(resp.body()));
         } else {
             failedRoutes.add(route);
             log.error(
@@ -87,13 +90,21 @@ public class App {
         }
     }
 
-    static boolean isSuccess(HttpResponse<String> resp) {
-        ObjectMapper mapper = new ObjectMapper();
+    static boolean isSuccess(String jsonString) {
         try {
-            JsonNode json = mapper.readTree(resp.body());
+            JsonNode json = mapper.readTree(jsonString);
             return json.get("plan").get("itineraries").size() > 0;
         } catch (Throwable e) {
             return false;
+        }
+    }
+
+    static long nodesVisited(String jsonString) {
+        try {
+            JsonNode json = mapper.readTree(jsonString);
+            return json.get("debugOutput").get("visitedVertices").longValue();
+        } catch (Throwable e) {
+            return -1;
         }
     }
 
