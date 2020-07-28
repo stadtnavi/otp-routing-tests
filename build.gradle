@@ -8,14 +8,14 @@ group 'io.leonard'
 version '1.0.0'
 
 
-sourceCompatibility = 11
+sourceCompatibility = 14
 
 repositories {
     mavenCentral()
 }
 
 compileJava {
-    options.compilerArgs << '-parameters'
+    options.compilerArgs << '--enable-preview'
 }
 
 ext {
@@ -39,6 +39,7 @@ googleJavaFormat {
 }
 
 mainClassName = "de.stadtnavi.App"
+applicationDefaultJvmArgs = ["--enable-preview"]
 
 test {
     useJUnitPlatform()

@@ -15,54 +15,15 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+record Place(String label, double lat, double lng){}
+record Route(Place from, Place to) {}
+
 public class App {
-
-    public static class Route {
-        Place from;
-        Place to;
-
-        public Route(Place from, Place to) {
-            this.from = from;
-            this.to = to;
-        }
-    }
-
-    public static class Place {
-        String label;
-        double lat, lng;
-
-        public Place(String label, double lat, double lng) {
-            this.label = label;
-            this.lat = lat;
-            this.lng = lng;
-        }
-
-        @Override
-        public String toString() {
-            return label + "(" + lat + "," + lng + ")";
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Place place = (Place) o;
-            return Double.compare(place.lat, lat) == 0 && Double.compare(place.lng, lng) == 0;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(lat, lng);
-        }
-    }
-
     static Logger log = LoggerFactory.getLogger("log");
 
     static HttpClient client =
@@ -89,7 +50,7 @@ public class App {
     static List<Route> buildCombinations(List<Place> places) {
         return places.stream()
                 .flatMap(from -> places.stream().map(to -> new Route(from, to)))
-                .filter(r -> !r.from.equals(r.to)).collect(Collectors.toList());
+                .filter(r -> !r.from().equals(r.to())).collect(Collectors.toList());
     }
 
     static void queryRoute(Route route, String mode) {
@@ -110,16 +71,16 @@ public class App {
         if (isSuccess) {
             log.info(
                     "Route from {} to {} with modes {} took {} ms.",
-                    route.from,
-                    route.to,
+                    route.from(),
+                    route.to(),
                     mode,
                     duration.toMillis());
         } else {
             failedRoutes.add(route);
             log.error(
                     "Route from {} to {} with modes {} failed: {}",
-                    route.from,
-                    route.to,
+                    route.from(),
+                    route.to(),
                     mode,
                     resp.body());
         }
@@ -136,12 +97,12 @@ public class App {
     }
 
     static URI makeUri(Route route, String modes) {
-        var from = route.from;
-        var to = route.to;
+        var from = route.from();
+        var to = route.to();
         var uri =
                 "https://api.mih.mitfahren-bw.de/routing/v1/router/plan?fromPlace=%f,%f&toPlace=%f,%f&mode=%s&maxWalkDistance=15000&arriveBy=false&wheelchair=false&locale=en";
         try {
-            return new URI(String.format(uri, from.lat, from.lng, to.lat, to.lng, modes));
+            return new URI(String.format(uri, from.lat(), from.lng(), to.lat(), to.lng(), modes));
         } catch (URISyntaxException e) {
             e.printStackTrace();
             return null;
