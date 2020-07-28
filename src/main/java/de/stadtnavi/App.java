@@ -15,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -50,7 +51,7 @@ public class App {
     static List<Route> buildCombinations(List<Place> places) {
         return places.stream()
                 .flatMap(from -> places.stream().map(to -> new Route(from, to)))
-                .filter(r -> !r.from().equals(r.to())).collect(Collectors.toList());
+                .filter(r -> !Objects.equals(r.from(), r.to())).collect(Collectors.toList());
     }
 
     static void queryRoute(Route route, String mode) {
